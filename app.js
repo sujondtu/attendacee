@@ -232,6 +232,7 @@ function markStudent(sid, value) {
 // ---------- optional Firestore cloud sync ----------
 let cloudSync = {
   status: "Cloud not configured",
+  detail: "",
   ready: false,
   starting: false,
   firestoreStarted: false,
@@ -239,6 +240,7 @@ let cloudSync = {
   saveTimer: null,
   app: null,
   firestore: null,
+  unsubscribe: null,
   authRequired: false,
   auth: null,
   user: null,
@@ -249,9 +251,33 @@ let cloudSync = {
   setDoc: null
 };
 
-function setCloudStatus(status) {
+function setCloudStatus(status, detail = "") {
   cloudSync.status = status;
+  cloudSync.detail = detail;
   if (view === "more") render();
+}
+function firebaseErrorMessage(err) {
+  const code = err?.code || "";
+  const messages = {
+    "aborted": "Sync interrupted. Try again.",
+    "already-exists": "Cloud document already exists.",
+    "cancelled": "Sync cancelled.",
+    "data-loss": "Cloud data error.",
+    "deadline-exceeded": "Network timeout.",
+    "failed-precondition": "Firestore setup needs attention.",
+    "internal": "Firebase internal error.",
+    "invalid-argument": "Invalid Firestore data.",
+    "not-found": "Cloud document not found.",
+    "out-of-range": "Firestore limit reached.",
+    "permission-denied": "Firestore rules blocked access.",
+    "resource-exhausted": "Firebase quota exceeded.",
+    "unauthenticated": "Sign in again for cloud sync.",
+    "unavailable": "Firebase network unavailable.",
+    "unimplemented": "Firestore feature unavailable.",
+    "unknown": "Unknown Firebase error."
+  };
+  const readable = messages[code] || code.replace(/-/g, " ") || "Cloud sync error";
+  return err?.message ? `${readable}: ${err.message}` : readable;
 }
 function getFirebaseConfig() {
   const cfg = window.FIREBASE_CONFIG;
@@ -338,7 +364,7 @@ function startFirestoreSync() {
   cloudSync.ready = true;
   cloudSync.firestoreStarted = true;
 
-  onSnapshot(cloudSync.ref, { includeMetadataChanges: true }, (snapshot) => {
+  cloudSync.unsubscribe = onSnapshot(cloudSync.ref, { includeMetadataChanges: true }, (snapshot) => {
     if (snapshot.metadata.hasPendingWrites) {
       setCloudStatus(navigator.onLine ? "Syncing..." : "Offline changes queued");
       return;
@@ -367,10 +393,27 @@ function startFirestoreSync() {
     setCloudStatus("Cloud synced");
   }, (err) => {
     console.warn("Cloud sync failed", err);
-    setCloudStatus("Cloud sync error");
+    cloudSync.ready = false;
+    cloudSync.firestoreStarted = false;
+    cloudSync.unsubscribe = null;
+    setCloudStatus(firebaseErrorMessage(err), err?.code || "");
   });
 }
+function retryCloudSync() {
+  if (!cloudSync.user && cloudSync.authRequired) {
+    setCloudStatus("Sign in for cloud sync");
+    return;
+  }
+  if (cloudSync.unsubscribe) {
+    cloudSync.unsubscribe();
+    cloudSync.unsubscribe = null;
+  }
+  cloudSync.ready = false;
+  cloudSync.firestoreStarted = false;
+  startFirestoreSync();
+}
 function queueCloudSave() {
+  if (!cloudSync.ready && cloudSync.user) retryCloudSync();
   if (!cloudSync.ready || cloudSync.applyingRemote) return;
   clearTimeout(cloudSync.saveTimer);
   cloudSync.saveTimer = setTimeout(pushCloudState, 350);
@@ -387,8 +430,24 @@ async function pushCloudState() {
     setCloudStatus(navigator.onLine ? "Cloud synced" : "Offline changes queued");
   } catch (err) {
     console.warn("Cloud save failed", err);
-    setCloudStatus("Cloud sync error");
+    setCloudStatus(firebaseErrorMessage(err), err?.code || "");
   }
+}
+function firebaseAuthMessage(err) {
+  const code = err?.code || "";
+  const messages = {
+    "auth/email-already-in-use": "Account already exists. Tap Sign in.",
+    "auth/invalid-email": "Use a valid email address.",
+    "auth/invalid-credential": "Wrong email or password.",
+    "auth/missing-password": "Password is required.",
+    "auth/operation-not-allowed": "Enable Email/Password in Firebase Auth.",
+    "auth/unauthorized-domain": "Add this site domain in Firebase Auth.",
+    "auth/user-disabled": "This account is disabled in Firebase.",
+    "auth/user-not-found": "No account yet. Tap Create first.",
+    "auth/weak-password": "Use at least 6 characters.",
+    "auth/wrong-password": "Wrong password."
+  };
+  return messages[code] || code.replace(/^auth\//, "").replace(/-/g, " ") || "Cloud sign in failed";
 }
 function openCloudAccount() {
   if (!getFirebaseConfig()) {
@@ -401,13 +460,25 @@ function openCloudAccount() {
   }
 
   openSheet("Cloud sync", (sheet, close) => {
+    sheet.appendChild(el("div", { class: "card", style: "padding:14px; margin-bottom:12px" },
+      el("div", { class: "meta" }, "Status"),
+      el("div", { class: "name", style: "font-weight:600; margin-top:2px" }, cloudSync.status),
+      cloudSync.detail ? el("div", { class: "hint", style: "margin-top:6px; color:var(--muted); font-size:13px" }, cloudSync.detail) : null
+    ));
+
     if (cloudSync.user) {
       sheet.appendChild(el("div", { class: "card", style: "padding:14px; margin-bottom:12px" },
         el("div", { class: "meta" }, "Signed in"),
         el("div", { class: "name", style: "font-weight:600; margin-top:2px" }, cloudSync.user.email || cloudSync.user.uid)
       ));
       sheet.appendChild(el("div", { class: "btn-row" },
-        el("button", { class: "btn btn-secondary", onclick: close }, "Close"),
+        el("button", {
+          class: "btn btn-secondary",
+          onclick: () => {
+            retryCloudSync();
+            toast("Retrying cloud sync");
+          }
+        }, "Retry"),
         el("button", {
           class: "btn btn-danger",
           onclick: async () => {
@@ -452,7 +523,7 @@ function openCloudAccount() {
         toast("Cloud signed in");
       } catch (err) {
         console.warn("Cloud auth failed", err);
-        toast(mode === "create" ? "Could not create account" : "Sign in failed");
+        toast(firebaseAuthMessage(err));
       }
     };
 
