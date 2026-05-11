@@ -412,6 +412,30 @@ function retryCloudSync() {
   cloudSync.firestoreStarted = false;
   startFirestoreSync();
 }
+function cloudDiagnosticsText() {
+  const cfg = getFirebaseConfig();
+  return [
+    `status=${cloudSync.status}`,
+    `detail=${cloudSync.detail || ""}`,
+    `signedInEmail=${cloudSync.user?.email || ""}`,
+    `projectId=${cfg?.projectId || ""}`,
+    `authDomain=${cfg?.authDomain || ""}`,
+    `docPath=attendanceTrackers/${getCloudDocId()}`,
+    `authRequired=${cloudSync.authRequired}`,
+    `online=${navigator.onLine}`,
+    `url=${location.href}`
+  ].join("\n");
+}
+async function copyCloudDiagnostics() {
+  const text = cloudDiagnosticsText();
+  try {
+    await navigator.clipboard.writeText(text);
+    toast("Diagnostics copied");
+  } catch (_) {
+    console.log(text);
+    toast("Diagnostics printed in console");
+  }
+}
 function queueCloudSave() {
   if (!cloudSync.ready && cloudSync.user) retryCloudSync();
   if (!cloudSync.ready || cloudSync.applyingRemote) return;
@@ -479,6 +503,10 @@ function openCloudAccount() {
             toast("Retrying cloud sync");
           }
         }, "Retry"),
+        el("button", {
+          class: "btn btn-secondary",
+          onclick: copyCloudDiagnostics
+        }, "Copy info"),
         el("button", {
           class: "btn btn-danger",
           onclick: async () => {

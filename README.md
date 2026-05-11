@@ -68,3 +68,16 @@ window.FIREBASE_REQUIRE_AUTH = true;
 - Do not use public Firestore rules like `allow read, write: if true` for this app.
 - Firestore sync is optional. If Firebase is not configured, the app stays local-only.
 - Firestore web offline persistence works after the Firebase SDK has loaded at least once online.
+
+## Cloud Sync Troubleshooting
+
+If the app shows a cloud sync error:
+
+1. Deploy the latest files first. The service worker caches the app, so old phone builds can keep running until `sw.js` changes and the page is refreshed.
+2. In Firebase Console, check **Authentication > Users** and confirm the signed-in email exactly matches your Firestore rule.
+3. In **Authentication > Sign-in method**, confirm **Email/Password** is enabled.
+4. In **Authentication > Settings > Authorized domains**, add your hosted domain, such as `yourusername.github.io`.
+5. In **Firestore Database > Rules**, confirm you clicked **Publish**.
+6. In **Firestore Database > Data**, confirm the document path is `attendanceTrackers/iut-attendance`.
+7. In the app, go to **More > Cloud sync > Retry** after fixing Firebase settings.
+8. If it still fails, tap **Copy info** in the Cloud sync sheet and paste that diagnostic text into the chat.
