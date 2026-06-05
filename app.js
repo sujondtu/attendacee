@@ -291,6 +291,15 @@ function getCloudDocId() {
   const configured = window.FIREBASE_ATTENDANCE_DOC_ID || "main";
   return String(configured).replace(/[\/#?[\]]/g, "_").slice(0, 120) || "main";
 }
+function getAllowedEmail() {
+  const e = window.FIREBASE_ALLOWED_EMAIL;
+  return typeof e === "string" && e.trim() ? e.trim().toLowerCase() : null;
+}
+function isEmailAllowed(email) {
+  const allowed = getAllowedEmail();
+  if (!allowed) return true;
+  return (email || "").toLowerCase() === allowed;
+}
 async function initCloudSync() {
   if (cloudSync.ready || cloudSync.starting || cloudSync.firestoreStarted) return;
 
@@ -324,7 +333,13 @@ async function initCloudSync() {
       cloudSync.signOut = authModule.signOut;
       cloudSync.GoogleAuthProvider = authModule.GoogleAuthProvider;
       cloudSync.signInWithPopup = authModule.signInWithPopup;
-      authModule.onAuthStateChanged(cloudSync.auth, (user) => {
+      authModule.onAuthStateChanged(cloudSync.auth, async (user) => {
+        if (user && !isEmailAllowed(user.email)) {
+          await cloudSync.signOut(cloudSync.auth);
+          setCloudStatus("Account not authorised");
+          toast("Only abushaidsujondtu@gmail.com can sync");
+          return;
+        }
         cloudSync.user = user;
         if (user) {
           startFirestoreSync();
@@ -540,7 +555,14 @@ function openCloudAccount() {
             googleBtn.disabled = true;
             googleBtn.textContent = "Signing in...";
             const provider = new cloudSync.GoogleAuthProvider();
-            await cloudSync.signInWithPopup(cloudSync.auth, provider);
+            const result = await cloudSync.signInWithPopup(cloudSync.auth, provider);
+            if (!isEmailAllowed(result.user?.email)) {
+              await cloudSync.signOut(cloudSync.auth);
+              googleBtn.disabled = false;
+              googleBtn.innerHTML = googleIconSVG + " Sign in with Google";
+              toast("Only abushaidsujondtu@gmail.com can sync");
+              return;
+            }
             close();
             toast("Cloud signed in");
           } catch (err) {

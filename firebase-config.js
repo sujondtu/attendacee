@@ -12,6 +12,9 @@ window.FIREBASE_CONFIG = {
 // Change this if you want separate cloud documents for separate courses/apps.
 window.FIREBASE_ATTENDANCE_DOC_ID = "iut-attendance";
 
-// Keep this true for a private attendance app. Enable Email/Password sign-in
+// Keep this true for a private attendance app. Enable Google sign-in
 // in Firebase Authentication before turning on Firestore sync.
 window.FIREBASE_REQUIRE_AUTH = true;
+
+// Only this Google account is allowed to sign in and sync.
+window.FIREBASE_ALLOWED_EMAIL = "abushaidsujondtu@gmail.com";
