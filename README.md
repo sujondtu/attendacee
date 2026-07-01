@@ -18,9 +18,10 @@ The app works immediately with no Firebase setup. Data is stored in the current 
 
 1. Create a Firebase project at <https://console.firebase.google.com/>.
 2. Add a Web app in Firebase Project settings and copy the Firebase config object.
-3. Enable **Authentication > Sign-in method > Email/Password**.
-4. Create a **Firestore Database** in production mode.
-5. In Firestore **Rules**, replace `your-email@example.com` with your sign-in email:
+3. Enable **Authentication > Sign-in method > Google** (and optionally Email/Password).
+4. In **Authentication > Settings > Authorized domains**, add your hosted domain (e.g. `yourusername.github.io`).
+5. Create a **Firestore Database** in production mode.
+6. In Firestore **Rules**, set the allowed email:
 
 ```js
 rules_version = '2';
@@ -28,14 +29,14 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /attendanceTrackers/{docId} {
       allow read, write: if request.auth != null
-        && request.auth.token.email == "your-email@example.com"
+        && request.auth.token.email == "abushaidsujondtu@gmail.com"
         && docId == "iut-attendance";
     }
   }
 }
 ```
 
-6. Paste your Firebase config into `firebase-config.js`:
+7. Paste your Firebase config into `firebase-config.js`:
 
 ```js
 window.FIREBASE_CONFIG = {
