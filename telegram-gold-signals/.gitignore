@@ -1,0 +1,8 @@
+# Secrets — never commit these
+config.ini
+*.session
+*.session-journal
+
+# Local junk
+__pycache__/
+venv/
