@@ -1,0 +1,23 @@
+# systemd service — keeps the listener running 24/7 on a Linux VPS or
+# Raspberry Pi, and restarts it automatically if it ever crashes.
+#
+# Install (adjust the paths to where you put the folder):
+#   sudo cp gold-signals.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now gold-signals
+# Check logs:
+#   journalctl -u gold-signals -f
+
+[Unit]
+Description=Telegram Gold Signal Listener
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/gold-signals
+ExecStart=/opt/gold-signals/venv/bin/python /opt/gold-signals/gold_signal_listener.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
