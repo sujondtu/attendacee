@@ -21,7 +21,7 @@ install_venv() {
   echo "==> Creating isolated Python env in ./venv with ocrmypdf from PyPI…"
   python3 -m venv venv
   ./venv/bin/pip install --upgrade pip >/dev/null
-  ./venv/bin/pip install ocrmypdf
+  ./venv/bin/pip install ocrmypdf pymupdf
   echo ""
   echo "==> venv ready. Run the pipeline through it, e.g.:"
   echo "    ./venv/bin/python revive.py all book.pdf --out build/"

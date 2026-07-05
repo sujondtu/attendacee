@@ -76,7 +76,7 @@ def run(cmd, **kwargs):
 REQUIREMENTS = {
     "clean": {"ocrmypdf": "ocrmypdf", "tesseract": "tesseract-ocr"},
     "ocr": {"ocrmypdf": "ocrmypdf", "tesseract": "tesseract-ocr"},
-    "extract-figures": {"pdfimages": "poppler-utils", "pdftoppm": "poppler-utils"},
+    "extract-figures": {},  # checked lazily: PyMuPDF (preferred) or poppler
     "colorize": {},  # checked lazily, backend is optional
 }
 
@@ -160,21 +160,29 @@ def stage_clean(pdf: Path, out_dir: Path, force: bool):
 def stage_extract_figures(pdf: Path, out_dir: Path, dpi: int):
     """
     Extract figures two ways and keep whichever you prefer:
-      1) pdfimages -> the raw embedded image objects (best quality, exact).
-      2) pdftoppm  -> a full-page render at <dpi> so you can crop figures that
-                      are made of several image fragments or vector overlays.
+      1) embedded image objects (best quality, exact) — great for micrographs.
+      2) full-page renders at <dpi> so you can crop diagrams made of several
+         image fragments or vector overlays.
+
+    Prefers PyMuPDF (`pip install pymupdf`, pure-Python, works everywhere incl.
+    Windows). Falls back to poppler's pdfimages/pdftoppm if PyMuPDF is absent.
     """
-    require("extract-figures")
     fig_dir = out_dir / "figures"
     page_dir = out_dir / "pages"
     fig_dir.mkdir(parents=True, exist_ok=True)
     page_dir.mkdir(parents=True, exist_ok=True)
 
-    say("Extracting embedded images (pdfimages)…")
-    run(["pdfimages", "-png", "-p", str(pdf), str(fig_dir / "fig")])
-
-    say(f"Rendering full pages at {dpi} DPI (pdftoppm)…")
-    run(["pdftoppm", "-png", "-r", str(dpi), str(pdf), str(page_dir / "page")])
+    if _have_pymupdf():
+        _extract_pymupdf(pdf, fig_dir, page_dir, dpi)
+    elif have("pdfimages") and have("pdftoppm"):
+        say("PyMuPDF not found; using poppler (pdfimages/pdftoppm)…")
+        run(["pdfimages", "-png", "-p", str(pdf), str(fig_dir / "fig")])
+        run(["pdftoppm", "-png", "-r", str(dpi), str(pdf), str(page_dir / "page")])
+    else:
+        warn("Figure extraction needs either PyMuPDF or poppler.")
+        print("    pip install pymupdf        (recommended, cross-platform)")
+        print("    or install poppler-utils   (Linux/macOS)")
+        fail("No figure-extraction backend available.")
 
     n_fig = len(list(fig_dir.glob("*.png")))
     n_page = len(list(page_dir.glob("*.png")))
@@ -183,6 +191,33 @@ def stage_extract_figures(pdf: Path, out_dir: Path, dpi: int):
     say("  Tip: use the page renders to crop diagrams; use the embedded "
         "images for the cleanest micrographs.")
     return fig_dir
+
+
+def _have_pymupdf():
+    try:
+        import fitz  # noqa: F401  (PyMuPDF)
+        return True
+    except Exception:
+        return False
+
+
+def _extract_pymupdf(pdf: Path, fig_dir: Path, page_dir: Path, dpi: int):
+    """Extract embedded images and render full pages using PyMuPDF."""
+    import fitz
+    say("Extracting figures with PyMuPDF…")
+    doc = fitz.open(str(pdf))
+    try:
+        for pno in range(len(doc)):
+            page = doc[pno]
+            for i, img in enumerate(page.get_images(full=True)):
+                pix = fitz.Pixmap(doc, img[0])
+                if pix.n - pix.alpha >= 4:      # CMYK/other -> RGB for PNG
+                    pix = fitz.Pixmap(fitz.csRGB, pix)
+                pix.save(str(fig_dir / f"fig-p{pno + 1:04d}-{i:02d}.png"))
+                pix = None
+            page.get_pixmap(dpi=dpi).save(str(page_dir / f"page-{pno + 1:04d}.png"))
+    finally:
+        doc.close()
 
 
 def stage_colorize(src_dir: Path, out_dir: Path, backend: str):
@@ -258,27 +293,41 @@ def stage_all(pdf: Path, out_dir: Path, lang: str, force: bool, dpi: int):
 
 def cmd_doctor():
     say("Dependency check", color=BOLD)
-    everything = {
+    # Core tools needed for OCR (the searchable-book step).
+    core = {
         "ocrmypdf": "OCR + page cleanup",
         "tesseract": "OCR engine",
-        "pdfimages": "figure extraction (poppler)",
-        "pdftoppm": "page rendering (poppler)",
         "gs": "PDF/PostScript (ghostscript, used by ocrmypdf)",
-        "convert": "image tweaks (imagemagick, optional)",
     }
-    all_ok = True
-    for tool, purpose in everything.items():
+    core_ok = True
+    for tool, purpose in core.items():
         path = have(tool)
         mark = f"{GREEN}✓{RESET}" if path else f"{RED}✖{RESET}"
-        loc = path or "not found"
         if not path:
-            all_ok = False
-        print(f"  {mark}  {tool:<11} {purpose:<34} {loc}")
+            core_ok = False
+        print(f"  {mark}  {tool:<11} {purpose:<40} {path or 'not found'}")
+
+    # Figure extraction needs EITHER PyMuPDF (preferred) OR poppler.
     print()
-    if all_ok:
-        say("All core tools present. You're ready to run:  python3 revive.py all book.pdf", GREEN)
+    say("Figure extraction (need one of these)", color=BOLD)
+    pymupdf_ok = _have_pymupdf()
+    print(f"  {GREEN + '✓' + RESET if pymupdf_ok else RED + '✖' + RESET}  "
+          f"{'pymupdf':<11} {'PyMuPDF (pip install pymupdf, cross-platform)':<40} "
+          f"{'installed' if pymupdf_ok else 'not found'}")
+    poppler_ok = bool(have("pdfimages") and have("pdftoppm"))
+    print(f"  {GREEN + '✓' + RESET if poppler_ok else RED + '✖' + RESET}  "
+          f"{'poppler':<11} {'poppler-utils (pdfimages/pdftoppm)':<40} "
+          f"{'installed' if poppler_ok else 'not found'}")
+    fig_ok = pymupdf_ok or poppler_ok
+
+    print()
+    if core_ok and fig_ok:
+        say("All set. Run:  python3 revive.py all book.pdf", GREEN)
     else:
-        warn("Some tools are missing. Run ./install.sh to install them.")
+        if not core_ok:
+            warn("Core OCR tools missing — run ./install.sh (or ./install.sh --venv).")
+        if not fig_ok:
+            warn("No figure-extraction backend — run: pip install pymupdf")
 
 
 # --------------------------------------------------------------------------- #

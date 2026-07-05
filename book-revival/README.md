@@ -8,11 +8,15 @@ colorizing) its **figures**.
 Because it processes the whole PDF in one command, the page count doesn't
 matter — you never have to upload or handle pages one at a time.
 
-> **No install? Use the Colab notebook.** Open `Revive_Book_Colab.ipynb` in
-> [Google Colab](https://colab.research.google.com/) (File → Upload notebook),
-> then Runtime → *Run all*. It installs the tools in the browser, you upload
-> your PDF, and it hands back a searchable PDF + `figures.zip`. Best option on
-> Windows, where installing Tesseract/Ghostscript by hand is fiddly.
+> **On Windows?** Two easy paths:
+> - **One-click script:** put `revive_windows.ps1` next to `revive.py`, right-click
+>   it → *Run with PowerShell*. It installs Python/Tesseract/Ghostscript (via
+>   winget) + `ocrmypdf`/`pymupdf`, pops a file picker for your PDF, and writes
+>   the searchable book + figures to a `revived/` folder beside it.
+> - **No install at all:** open `Revive_Book_Colab.ipynb` in
+>   [Google Colab](https://colab.research.google.com/) (File → Upload notebook)
+>   → Runtime → *Run all*. Everything runs in the browser; you get a searchable
+>   PDF + `figures.zip`.
 
 ---
 
@@ -115,7 +119,12 @@ and images so no book content is ever committed to the repo.
 ## Requirements
 
 - **Python 3.8+**
-- System tools (installed by `./install.sh`): `ocrmypdf`, `tesseract-ocr`,
-  `poppler-utils`, `ghostscript`, `imagemagick`.
+- **OCR core:** `ocrmypdf` + system binaries `tesseract` and `ghostscript`
+  (installed by `./install.sh`, or by `revive_windows.ps1` on Windows).
+- **Figure extraction:** `pymupdf` (`pip install -r requirements.txt`) — pure
+  Python, works everywhere. Poppler (`pdfimages`/`pdftoppm`) is used
+  automatically as a fallback if PyMuPDF isn't installed.
 - *(optional, for local colorization)* `deoldify`, `torch` — see
   `requirements-colorize.txt`.
+
+Check what you have with `python3 revive.py doctor`.
