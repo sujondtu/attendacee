@@ -1,0 +1,12 @@
+# Optional dependencies for LOCAL AI colorization (revive.py colorize --backend deoldify).
+# A GPU is strongly recommended; on CPU this is very slow.
+#
+#   pip install -r requirements-colorize.txt
+#
+# If you'd rather not run ML locally, skip this file and use
+#   python3 revive.py colorize <figures_dir> --backend manual
+# which copies the figures out and points you at hosted colorizers.
+
+deoldify
+torch
+Pillow
