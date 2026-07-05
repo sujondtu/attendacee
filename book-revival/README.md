@@ -8,6 +8,12 @@ colorizing) its **figures**.
 Because it processes the whole PDF in one command, the page count doesn't
 matter — you never have to upload or handle pages one at a time.
 
+> **No install? Use the Colab notebook.** Open `Revive_Book_Colab.ipynb` in
+> [Google Colab](https://colab.research.google.com/) (File → Upload notebook),
+> then Runtime → *Run all*. It installs the tools in the browser, you upload
+> your PDF, and it hands back a searchable PDF + `figures.zip`. Best option on
+> Windows, where installing Tesseract/Ghostscript by hand is fiddly.
+
 ---
 
 ## What it does
