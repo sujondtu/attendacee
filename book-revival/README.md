@@ -28,6 +28,9 @@ cd book-revival
 
 # 1. Install the tools (Debian/Ubuntu, macOS, or Fedora auto-detected)
 ./install.sh
+# If ocrmypdf/pikepdf fail to import on your system (broken/old distro
+# packages), use the isolated-venv fallback instead:
+#   ./install.sh --venv     then run:  ./venv/bin/python revive.py all book.pdf
 
 # 2. Check everything is ready
 python3 revive.py doctor

@@ -9,6 +9,25 @@
 #
 set -euo pipefail
 
+# ---------------------------------------------------------------------------
+# Fallback: pip/venv install of the Python side (ocrmypdf + pikepdf).
+# Use this if your system packages are broken/old, e.g.
+#     ./install.sh --venv
+# You STILL need the system binaries tesseract, poppler and ghostscript
+# (this script installs those first). ocrmypdf/pikepdf then come from PyPI in
+# an isolated venv, avoiding version clashes with distro packages.
+# ---------------------------------------------------------------------------
+install_venv() {
+  echo "==> Creating isolated Python env in ./venv with ocrmypdf from PyPI…"
+  python3 -m venv venv
+  ./venv/bin/pip install --upgrade pip >/dev/null
+  ./venv/bin/pip install ocrmypdf
+  echo ""
+  echo "==> venv ready. Run the pipeline through it, e.g.:"
+  echo "    ./venv/bin/python revive.py all book.pdf --out build/"
+  echo "  (Make sure tesseract/poppler/ghostscript are on PATH — installed above.)"
+}
+
 echo "==> Detecting platform…"
 
 install_debian() {
@@ -52,5 +71,10 @@ else
   exit 1
 fi
 
+if [ "${1:-}" = "--venv" ]; then
+  install_venv
+fi
+
 echo ""
 echo "==> Done. Verify with:  python3 revive.py doctor"
+echo "    If ocrmypdf/pikepdf fail to import, re-run:  ./install.sh --venv"
