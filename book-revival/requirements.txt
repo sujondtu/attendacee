@@ -1,0 +1,9 @@
+# Python dependencies for the pipeline.
+#   pip install -r requirements.txt
+#
+# You STILL need the system binaries tesseract and ghostscript on PATH
+# (ocrmypdf shells out to them). On Windows, revive_windows.ps1 installs
+# those for you via winget.
+
+ocrmypdf      # OCR + page cleanup (adds the searchable text layer)
+pymupdf       # figure extraction + page rendering (cross-platform, no poppler)

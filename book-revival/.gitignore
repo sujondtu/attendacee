@@ -1,0 +1,17 @@
+# Never commit book scans or generated output (copyright + size).
+build/
+*.pdf
+pages/
+figures/
+figures_color/
+*.png
+*.jpg
+*.jpeg
+*.tif
+*.tiff
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
